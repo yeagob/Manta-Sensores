@@ -1,0 +1,96 @@
+ <html>
+   <head>
+      <title>Manta de sensores de presion</title>
+
+      <style>
+            li span {
+                color:#fff;
+                border:1px solid #ccc;
+                background-color:#808080;
+                margin-right:10px;
+                padding: 0 2px;
+                border-radius:4px;
+                -moz-border-radius:4px;
+                -webkit-border-radius:4px;
+                -o-border-radius:4px;
+                border-radius:4px;
+                font-weight:bold;
+                font-size:0.8em;
+                cursor:pointer;
+            }
+      </style>
+
+      <script src="autobahn.min.js"></script>      
+      <script src="manta.js"></script>     
+      <script src="smoothie.js"></script>
+      <script src="cliente.js"></script>
+
+   </head>
+   <body>    
+      <p align="center"><table>
+      <tr><td style="vertical-align: top; width: 15%; text-align: center; padding-top: 120px">
+          <img src='EscalaColorManta.jpg' alt='Leyenda'>
+      </td>
+      <td style="vertical-align: top; width: 40%;">
+  
+        <select id="transfer_reason" name="select_mode" onchange="control(this.selectedIndex)">
+          <option value="0">Minimos</option>
+          <option value="1">Maximos</option>
+          <option value="2">Raw</option>
+          <option value="3">Calibrado</option>
+          <option value="4">Test</option>
+        </select>
+        <button id="btnGuardar" onclick="control(5)">Guardar Calibrado</button>
+        <button id="btnCargar"  onclick="control(6)">Cargar Calibrado</button>
+        <button id="btnReset"   onclick="control(7)">Reset Calibrado</button>
+        <br><br>
+       
+     	   <canvas id="canvas1" width="500" height="500"></canvas>
+   	  </td><td style="vertical-align: center; width: 40%;">
+          <br><br><br>
+         <button onclick="enviar('con')">Lectura Condensador/Resistencia</button>
+         <button onclick="control(8)">Activar/Desactivar Buffer</button>
+         <div style="background: lightgrey; border-style: solid;border-width: 1px;width: 200px; padding: 10px;">
+         <p>Delaytime: 
+         <input id="delay" style="padding: 5px; width: 50px;" type="text" value="500">
+         <button onclick="enviar('del')">Set</button>  </p>            
+         <p>[Eventos/seg : <span id="analog0">-</span>]</p>
+         </div> 
+         
+         <p>Valor Resistencia: 
+         <input id="resist" style="padding: 5px; width: 50px;" type="text" value="10">
+         <button onclick="enviar('res')">Enviar</button></p>
+         
+         <div style="background: lightgrey; border-style: solid;border-width: 1px;width: 200px; padding: 10px;">
+            <p>              
+               <input type="text" id="nuevo_li" style="padding: 5px; width: 100px;" >
+               <button onclick= "add_li()" > Añadir</button>
+               
+            </p>
+            <ul id="listaDesordenada">
+            </ul>
+            <button onclick= SetValues()" > Establecer Secuencia</button>
+         </div>
+          <form name="formulario">
+      	      <p>Consola</p>
+              <textarea name="box" autofocus="true" cols="45" rows="10">	     
+              </textarea >             	      
+          </form>	
+        </td></tr></table>  </p>
+     
+  
+          <div>
+          <p><input type="checkbox" name="op1" value="false" onclick="CHKsmoothie()">Activar Smoothie: <span id="analog1">-</span></p> 
+          <input id="SCol" type="text" style="padding: 5px; width: 50px;" value="9" >x
+          <input id="SRow" type="text" style="padding: 5px; width: 50px;" value="5" >
+  
+          <button onclick="setRowCol()">Set</button>
+          </div>
+          <div id="divCanvas2">
+            <canvas id="canvas2" width="800" height="400"></canvas>
+         </div>
+             
+  
+      <div id="statusline"></div>
+   </body>
+ </html>
