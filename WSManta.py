@@ -56,19 +56,17 @@ class Serial2WsOptions(usage.Options):
       ['wsurl', 's', "ws://localhost:9000", 'WebSocket port to use for embedded WebSocket server']
    ]
 
-
-## MCU protocol
-##  Recibir los datos del serial 
-##  Procesado de datos en función del estado
-##  Gestionar la comunicación entre el microcontrolador y el cliente
-class McuProtocol(LineReceiver):
-
+class MatrizSensores:
+	
    ## Definimos las propiedades de las matrices para la Malla actual
    matrizMinimos = []
    matrizMaximos = []
    matrizEscaneando = []
    dimension1 = 16
    dimension2 = 16
+   minVal = 0
+   maxVal = 0
+   estado = "Minimos"   
    
    
    ##Definimos las propiedades del Buffer de datos
@@ -77,19 +75,9 @@ class McuProtocol(LineReceiver):
    bufferPos = 0
    lecturaResistencia = True
    buffering = False
-
-   ##Variables de estado y control de datos
-   estado = "Minimos"   
-   count = -1
-   eventos = 0
-   tiempoAnterior = 0
-   minVal = 0
-   maxVal = 0
    
-   ##Tipos lectura: 1)Resistencia / 2) Condensador
-   tipoLectura = 1
- 
-   ##Inicializamos las matrices de datos 
+   
+    ##Inicializamos las matrices de datos 
    def inicializa(self):		
         
      ## Definimos las dimensiones de la MatrizMinimos, para calibrar
@@ -104,172 +92,11 @@ class McuProtocol(LineReceiver):
      ## Definimos las dimensiones de la matrizBuffer, para buffering de datos
      self.matrizBuffer = [[[0 for j in range(self.bufferSize)] for i in range(self.dimension2)] for k in range(self.dimension1)]
      
-     ## Inicializamos el contador de tiempo
-     self.tiempoAnterior = time.time()
-	
 
-   ##Construimos la clase principal e inicializamos las matrices. 
+   ##Inicializamos las matrices. 
    ##
-   def __init__(self, wsMcuFactory):
-      self.wsMcuFactory = wsMcuFactory
-      self.inicializa()            
-   
-      
-   ## Exportamos el metodo 'enviar' como RPC para que pueda ser llamado desde el cliete
-   ## Manejo del microcontrolador desde el panel de control del cliente.
-   @exportRpc("enviar")
-   def enviar(self, valores):
-     ##Enviamos el nuevo valor del delay al microcontrolador
-     if (int(valores[0]) > 0):
-        self.transport.write(str(valores[0]))
-        self.transport.write("d")     
-        if self.wsMcuFactory.debugSerial:
-           print "Nuevo valor del Delay(Micro):", valores[0]
-           
-     ##Enviamos valor de la resistencia variable al microcontrolador  
-     if ( int(valores[1]) > 0):  
-        self.transport.write(str(valores[1]))
-        self.transport.write("r") 
-        if self.wsMcuFactory.debugSerial:
-           print "Valor de la resistencia variable(en construccion):", valores[1]
-
-     ##Enviamos tipo lectura: 1)Resistencia / 2) Condensador    
-     if ( int(valores[2]) > 0):  
-       self.tipoLectura = valores[2]; 
-       if (self.tipoLectura == 1):
-           if self.wsMcuFactory.debugSerial:
-              print "Tipo de lectura: Por Resistencia"
-           self.lecturaResistencia = True 
-           self.transport.write("r")  
-       elif (self.tipoLectura == 2):
-           if self.wsMcuFactory.debugSerial:
-              print "Tipo de lectura: Por Condensador"
-           self.lecturaResistencia = False 
-           self.transport.write("c")   
-
-   
-   
-   ## Exportamos el Metodo como RPC para que pueda ser llamado desde el cliete
-   ##
-   @exportRpc("control")
-   def control(self, status):
-
-      ##Recibimos del cliente el estado actual de calibrado/ raw. 
-      ##Cargar, guardar y resetear los datos de la matriz actual
-      if status == 0:
-         self.estado = "Minimos"
-      elif status == 1:
-         self.estado = "Maximos"
-      elif status == 2:
-         self.estado = "Raw"
-      elif status == 3:
-         self.estado = "Calibrado"  
-      elif status == 4:
-	       self.estado = "Test"                
-      elif status == 5:
-         self.guardarMatriz()          
-      elif status == 6:
-	       self.cargarMatriz()
-      elif status == 7:
-	       self.resetMatriz()
-      elif status == 8:
-	       self.buffering = not self.buffering 
-	       
-      //Debug del estado actual
-      if self.wsMcuFactory.debugSerial:
-          print "Estado: ", self.estado
-          
-   ##Recibimos el valor, en 'line', que llega por serial desde arduino
-   def lineReceived(self, line):
-
-      //Debug del valor recibido
-      if self.wsMcuFactory.debugSerial and not self.lecturaResistencia:
-         print "Serial RX:", line
-    
-      ##Contador de llegada de datos
-      self.count = self.count + 1
-
-      try:               
- 	       ##Obtenemos la fila y la columna de la matriz a a partir de la posicion del valor actual.
-         row = int(round(self.count % 16))
-         col = int(round(self.count / 16))
-
-         ## Recibimos el dato del serial
-         ##
-         data = int(line)
-  
-         ## AL final de cada bloque (-1)
-         ## ENVIAMOS MATRIZ COMPLETA
-         if data == -1:    
-             ##El contador de posicion de la matriz se reinicia
-             self.count = -1
-             ##El contador de Buffer se incrementa o reinicia
-             if self.bufferPos >= self.bufferSize-1:
-                self.bufferPos = 0
-             else:
-                if self.estado == "Calibrado" and self.buffering:
-                    self.bufferPos = self.bufferPos + 1
-             if self.estado == "Minimos":        
-                 evt =  self.matrizMinimos
-             elif self.estado == "Maximos":
-                 evt = self.matrizMaximos
-             elif self.estado == "Raw" or self.estado == "Test" or self.estado == "Calibrado":
-                 evt = self.matrizEscaneando                     
-             ##ENVIANDO MATRIZ
-             self.wsMcuFactory.dispatch("http://example.com/mcu#analog-value", evt)
-             self.eventos = self.eventos + 1                   
-                    
-                    
-         ##Control de perdida del carater de control
-         if self.count >= 255:
-             self.count = -1
-             
-         ##Debug por pantalla de la velocidad de llegada de datos
-         ##if self.wsMcuFactory.debugSerial:
-         ##    if (time.time() - self.tiempoAnterior) > 1 :
-	       ##	self.tiempoAnterior = time.time()
-	       ##	print "Eventos/s: ", self.eventos
-	       ##	self.eventos = 0
-
-         
- 	       ##[MINIMOS]: si el dato que llega es menor al anterior 
-         ##lo guardamos en matrixMinimos 
-         if self.estado == "Minimos" and data != -1:            
-	         if self.matrizMinimos[row][col] == self.minVal or data > self.matrizMinimos[row][col] :
-	 	         self.matrizMinimos[row][col] = data
-       	
-         ##[MAXIMOS]: si el dato que llega es mayor al anterior 
-         ##lo guardamos en matrixMaximos 
-         elif self.estado == "Maximos" and data != -1 :
-            if data > self.matrizMaximos[row][col] :
-	 	           self.matrizMaximos[row][col] = data
- 
-         ##[RAW]:Guardamos el dato en matrixEscaneando sin Mapear
-         elif self.estado == "Raw" and data != -1 :
-             self.matrizEscaneando[row][col] = data                       
-             
-         ##[CALIBRADO]:Guardamos el dato en matrixEscaneando ya Mapeado
-         elif self.estado == "Calibrado" and data != -1 :
-            divisor = (self.matrizMaximos[row][col] - self.matrizMinimos[row][col]) 
-            if divisor == 0:
-		            data = 0
-            else :
-              if (data < self.matrizMinimos[row][col]):
-               		data = self.matrizMinimos[row][col]
-              if (data > self.matrizMaximos[row][col]):
-		              data = self.matrizMaximos[row][col]   
-              ##Mapeamos el valor sobre 1024 y lo guardamos en matrizEscaneando                
-              self.matrizEscaneando[row][col] = int (((data - self.matrizMinimos[row][col]) * 1024) / divisor)                         
-              if self.buffering :
-                self.matrizBuffer[row][col][self.bufferPos] = self.matrizEscaneando[row][col]
-                self.limpiaDatos(row,col)
-              
-	       ##[TEST]: Muestra los colores de la escala
-         elif self.estado == "Test":
-              self.matrizEscaneando[row][col] = self.count * (1024/256)
-      except ValueError:
-         log.err('Unable to parse value %s' % line)
-         print "Unable to parse value: ", line
+   def __init__(self):
+      self.inicializa()        
 
    ##Analizamos los valores del buffer y limpiamos los datos o no...
    def limpiaDatos (self, row, col):      
@@ -393,6 +220,194 @@ class McuProtocol(LineReceiver):
         if self.wsMcuFactory.debugSerial:
         	print "Reiniciando la Matriz Maximos"
         self.matrizMaximos = [[self.maxVal for j  in range (self.dimension1)] for i in range (self.dimension2)]
+      
+      
+
+## MCU protocol
+##  Recibir los datos del serial 
+##  Procesado de datos en función del estado
+##  Gestionar la comunicación entre el microcontrolador y el cliente
+class McuProtocol(LineReceiver):
+
+   ##Variables de estado y control de datos
+   count = -1
+   eventos = 0
+   
+   ##Tipos lectura: 1)Resistencia / 2) Condensador
+   tipoLectura = 1
+
+   ##Construimos el protocolo de comunicación y la clase MatrizSensores
+   ##
+   def __init__(self, wsMcuFactory):
+      self.wsMcuFactory = wsMcuFactory
+      self.Matriz = MatrizSensores()  
+      ## Inicializamos el contador de tiempo
+      self.tiempoAnterior = time.time()  
+   
+      
+   ## Exportamos el metodo 'enviar' como RPC para que pueda ser llamado desde el cliete
+   ## Manejo del microcontrolador desde el panel de control del cliente.
+   @exportRpc("enviar")
+   def enviar(self, valores):
+     ##Enviamos el nuevo valor del delay al microcontrolador
+     if (int(valores[0]) > 0):
+        self.transport.write(str(valores[0]))
+        self.transport.write("d")     
+        if self.wsMcuFactory.debugSerial:
+           print "Nuevo valor del Delay(Micro):", valores[0]
+           
+     ##Enviamos valor de la resistencia variable al microcontrolador  
+     if ( int(valores[1]) > 0):  
+        self.transport.write(str(valores[1]))
+        self.transport.write("r") 
+        if self.wsMcuFactory.debugSerial:
+           print "Valor de la resistencia variable(en construccion):", valores[1]
+
+     ##Enviamos tipo lectura: 1)Resistencia / 2) Condensador    
+     if ( int(valores[2]) > 0):  
+       self.tipoLectura = valores[2]; 
+       if (self.tipoLectura == 1):
+           if self.wsMcuFactory.debugSerial:
+              print "Tipo de lectura: Por Resistencia"
+           self.lecturaResistencia = True 
+           self.transport.write("r")  
+       elif (self.tipoLectura == 2):
+           if self.wsMcuFactory.debugSerial:
+              print "Tipo de lectura: Por Condensador"
+           self.lecturaResistencia = False 
+           self.transport.write("c")   
+
+   
+   
+   ## Exportamos el Metodo como RPC para que pueda ser llamado desde el cliete
+   ##
+   @exportRpc("control")
+   def control(self, status):
+
+      ##Referencia local a la Matriz de datos, por claridad
+      Matriz = self.Matriz
+      
+      ##Recibimos del cliente el estado actual de calibrado/ raw. 
+      ##Cargar, guardar y resetear los datos de la matriz actual
+      if status == 0:
+         Matriz.estado = "Minimos"
+      elif status == 1:
+         Matriz.estado = "Maximos"
+      elif status == 2:
+         Matriz.estado = "Raw"
+      elif status == 3:
+         Matriz.estado = "Calibrado"  
+      elif status == 4:
+	 Matriz.estado = "Test"                
+      elif status == 5:
+         Matriz.guardarMatriz()          
+      elif status == 6:
+	 Matriz.cargarMatriz()
+      elif status == 7:
+	 Matriz.resetMatriz()
+      elif status == 8:
+	 Matriz.buffering = not Matriz.buffering 
+	       
+      ##Debug del estado actual
+      if self.wsMcuFactory.debugSerial:
+          print "Estado: ", Matriz.estado
+          
+   ##Recibimos el valor, en 'line', que llega por serial desde arduino
+   def lineReceived(self, line):
+
+      ##Referencia local a la Matriz de datos, por claridad
+      Matriz = self.Matriz
+      	
+      ##Debug del valor recibido
+      if self.wsMcuFactory.debugSerial and not self.lecturaResistencia:
+         print "Serial RX:", line
+    
+      ##Contador de posición de llegada de datos
+      self.count = self.count + 1
+
+      try:               
+ 	 ##Obtenemos la fila y la columna de la matriz a a partir de la posicion del valor actual.
+         row = int(round(self.count % 16))
+         col = int(round(self.count / 16))
+
+         ## Recibimos el dato del serial
+         ##
+         data = int(line)
+  
+         ## AL final de cada bloque (-1)
+         ## ENVIAMOS MATRIZ COMPLETA
+         if data == -1:    
+             ##El contador de posicion de la matriz se reinicia
+             self.count = -1
+             ##El contador de Buffer se incrementa o reinicia
+             if Matriz.bufferPos >= Matriz.bufferSize-1:
+                Matriz.bufferPos = 0
+             else:
+                if Matriz.estado == "Calibrado" and Matriz.buffering:
+                    Matriz.bufferPos = Matriz.bufferPos + 1
+             if Matriz.estado == "Minimos":        
+                 evt =  Matriz.matrizMinimos
+             elif Matriz.estado == "Maximos":
+                 evt = Matriz.matrizMaximos
+             elif Matriz.estado == "Raw" or Matriz.estado == "Test" or Matriz.estado == "Calibrado":
+                 evt = Matriz.matrizEscaneando                     
+             ##ENVIANDO MATRIZ
+             self.wsMcuFactory.dispatch("http://example.com/mcu#analog-value", evt)
+             self.eventos = self.eventos + 1                   
+                    
+                    
+         ##Control de perdida del carater de control. Para matriz de 16x16 = 256 lecturas x matriz
+         if self.count >= (Matriz.dimension1*Matriz.dimension2)-1:
+             self.count = -1
+             
+         ##Debug por pantalla de la velocidad de llegada de datos
+         ##if self.wsMcuFactory.debugSerial:
+         ##    if (time.time() - self.tiempoAnterior) > 1 :
+	 ##	self.tiempoAnterior = time.time()
+	 ##	print "Eventos/s: ", self.eventos
+	 ##	self.eventos = 0
+
+         
+ 	 ##[MINIMOS]: si el dato que llega es menor al anterior 
+         ##lo guardamos en matrixMinimos 
+         if Matriz.estado == "Minimos" and data != -1:            
+	    if Matriz.matrizMinimos[row][col] == Matriz.minVal or data > Matriz.matrizMinimos[row][col] :
+	        Matriz.matrizMinimos[row][col] = data
+       	
+         ##[MAXIMOS]: si el dato que llega es mayor al anterior 
+         ##lo guardamos en matrixMaximos 
+         elif Matriz.estado == "Maximos" and data != -1 :
+            if data > Matriz.matrizMaximos[row][col] :
+		Matriz.matrizMaximos[row][col] = data
+ 
+         ##[RAW]:Guardamos el dato en matrixEscaneando sin Mapear
+         elif Matriz.estado == "Raw" and data != -1 :
+            Matriz.matrizEscaneando[row][col] = data                       
+             
+         ##[CALIBRADO]:Guardamos el dato en matrixEscaneando ya Mapeado
+         elif Matriz.estado == "Calibrado" and data != -1 :
+            divisor = (Matriz.matrizMaximos[row][col] - Matriz.matrizMinimos[row][col]) 
+            if divisor == 0:
+	    	data = 0
+            else :
+            	if (data < Matriz.matrizMinimos[row][col]):
+               		data = Matriz.matrizMinimos[row][col]
+            	if (data > Matriz.matrizMaximos[row][col]):
+		        data = Matriz.matrizMaximos[row][col]   
+        	##Mapeamos el valor sobre 1024 y lo guardamos en matrizEscaneando                
+        	Matriz.matrizEscaneando[row][col] = int (((data - Matriz.matrizMinimos[row][col]) * 1024) / divisor)                         
+        	if Matriz.buffering :
+        	        Matriz.matrizBuffer[row][col][self.bufferPos] = Matriz.matrizEscaneando[row][col]
+                	Matriz.limpiaDatos(row,col)
+              
+	 ##[TEST]: Muestra los colores de la escala
+         elif Matriz.estado == "Test":
+              Matriz.matrizEscaneando[row][col] = self.count * (1024/256)
+              
+      except ValueError:
+         log.err('Unable to parse value %s' % line)
+         print "Unable to parse value: ", line
+
 
 
 ## WS-MCU protocol
