@@ -56,6 +56,10 @@ class Serial2WsOptions(usage.Options):
       ['wsurl', 's', "ws://localhost:9000", 'WebSocket port to use for embedded WebSocket server']
    ]
 
+## MatrizSensores
+##  Almacenamiento de los datos de matrizMinimos, matrizMaximos, calibrado y raw
+##  Gestion del buffer de datos y limpieza de los mismos
+##  Cargar, guarda en disco y resetear los valores de las matrizMinimos y matrizMaximos.
 class MatrizSensores:
 	
    ## Definimos las propiedades de las matrices para la Malla actual
@@ -139,6 +143,7 @@ class MatrizSensores:
         f.write(str(self.matrizMinimos))
         
         f.close
+        
       ##[MAXIMOS]        
       elif self.estado == "Maximos":
         if self.wsMcuFactory.debugSerial:        
@@ -179,6 +184,7 @@ class MatrizSensores:
         
         if self.wsMcuFactory.debugSerial:
         	print "Cargando matrizMinimos...\n"+ str(self.matrizMinimos)
+        	
       ##[MAXIMOS]
       elif self.estado == "Maximos":
         ##Vamos a escribir sobre la matrizMaximos asi que cambiamos de estado, 
@@ -215,6 +221,7 @@ class MatrizSensores:
         if self.wsMcuFactory.debugSerial:
         	print "Reiniciando la matrizMinimos"
         self.matrizMinimos = [[self.maxVal for j  in range (self.dimension1)] for i in range (self.dimension2)]    
+        
       ##[MAXIMOS]    
       elif self.estado == "Maximos":
         if self.wsMcuFactory.debugSerial:
@@ -222,7 +229,6 @@ class MatrizSensores:
         self.matrizMaximos = [[self.maxVal for j  in range (self.dimension1)] for i in range (self.dimension2)]
       
       
-
 ## MCU protocol
 ##  Recibir los datos del serial 
 ##  Procesado de datos en función del estado
@@ -346,11 +352,11 @@ class McuProtocol(LineReceiver):
                 if Matriz.estado == "Calibrado" and Matriz.buffering:
                     Matriz.bufferPos = Matriz.bufferPos + 1
              if Matriz.estado == "Minimos":        
-                 evt =  Matriz.matrizMinimos
+                evt =  Matriz.matrizMinimos
              elif Matriz.estado == "Maximos":
-                 evt = Matriz.matrizMaximos
+                evt = Matriz.matrizMaximos
              elif Matriz.estado == "Raw" or Matriz.estado == "Test" or Matriz.estado == "Calibrado":
-                 evt = Matriz.matrizEscaneando                     
+                evt = Matriz.matrizEscaneando                     
              ##ENVIANDO MATRIZ
              self.wsMcuFactory.dispatch("http://example.com/mcu#analog-value", evt)
              self.eventos = self.eventos + 1                   
