@@ -1,48 +1,15 @@
 <html>
 <head>
 <script type="text/javascript">
-  function SetPort() 
-  { 
-    var port = document.getElementById("ttyS0"); //find the serial port ActiveX object
-
-    port.attachEvent('CommEvent', CommEventHandler); //CommEventHandler will handle serial port events
-
-    port.Port=0; 
-    port.BaudRate=115200;
-    port.DataBits=8;
-    port.Parity=0; //NOPARITY
-    port.StopBits=0; //one stop bit
-
-    port.DataMode=1; //Gives us data as text strings instead of byte arrays
-	
-    port.Connected=1; //Connects to the serial port
-	
-    if(port.error>0) //Display errors if found
-       alert(port.ErrorDescription);
-  }
-
-//Serial port event listener
-  function CommEventHandler(Evt, Data)
-  {
-    if(Evt==3) //=EVT_CONNECT
-    {
-      output.value=output.value+"conected!";
-    }
-    if(Evt==0) //=EVT_DISCONNECT
-    {
-      output.value=output.value+"DISconected!";
-    }
-    if(Evt==1) //=EVT_DATA
-    {
-      output.value=output.value+Data; //Store incoming data in the textarea
-    }
-   }
+ 
+    
 
 //Sends some data through the serial port
-  function SendData() 
+  function GetData() 
   { 
-    var port = document.getElementById("ttyS0");
-    port.Send("ABCD\n");
+    
+     var r = new FileReader();/=EVT_DATA
+      output.value=output.value+r.readAsBinaryString("/dev/ttyS0"); //Store incoming data in the textarea
   }
 </script>
 </head>
@@ -50,7 +17,7 @@
 <body onload="SetPort()">  
   <object classid="CLSID:7E42B8C5-73BE-4806-8904-FF4080A696EC" id="comport"></object>
 
-  <button onclick="javascript:SendData()">Send</button>
+  <button onclick="javascript:GetData()">Send</button>
   <br/>
   <textarea name="output" rows=10 cols=50></textarea>
 
