@@ -24,6 +24,14 @@
 //Serial port event listener
   function CommEventHandler(Evt, Data)
   {
+    if(Evt==3) //=EVT_CONNECT
+    {
+      output.value=output.value+"conected!";
+    }
+    if(Evt==0) //=EVT_DISCONNECT
+    {
+      output.value=output.value+"DISconected!";
+    }
     if(Evt==1) //=EVT_DATA
     {
       output.value=output.value+Data; //Store incoming data in the textarea
