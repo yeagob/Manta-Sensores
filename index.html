@@ -1,57 +1,50 @@
-<http>
-<body>
-<?php
-include 'PhpSerial.php';
+<html>
+<head>
+<script type="text/javascript">
+  function SetPort() 
+  { 
+    var port = document.getElementById("comport"); //find the serial port ActiveX object
 
-// Let's start the class
-$serial = new PhpSerial;
+    port.attachEvent('CommEvent', CommEventHandler); //CommEventHandler will handle serial port events
 
-// First we must specify the device. This works on both linux and windows (if
-// your linux serial device is /dev/ttyS0 for COM1, etc)
-$serial->deviceSet("COM1");
+    port.Port=7; //Please check what the port number is correct!!
+    port.BaudRate=9600;
+    port.DataBits=8;
+    port.Parity=0; //NOPARITY
+    port.StopBits=0; //one stop bit
 
-// We can change the baud rate, parity, length, stop bits, flow control
-$serial->confBaudRate(115200);
-$serial->confParity("none");
-$serial->confCharacterLength(8);
-$serial->confStopBits(1);
-$serial->confFlowControl("none");
+    port.DataMode=1; //Gives us data as text strings instead of byte arrays
+	
+    port.Connected=1; //Connects to the serial port
+	
+    if(port.error>0) //Display errors if found
+       alert(port.ErrorDescription);
+  }
 
-// Then we need to open it
-$serial->deviceOpen();
+//Serial port event listener
+  function CommEventHandler(Evt, Data)
+  {
+    if(Evt==1) //=EVT_DATA
+    {
+      output.value=output.value+Data; //Store incoming data in the textarea
+    }
+   }
 
-// To write into
-echo $serial->readPort(1);
-<http>
-<body>
-<?php
-include 'PhpSerial.php';
+//Sends some data through the serial port
+  function SendData() 
+  { 
+    var port = document.getElementById("comport");
+    port.Send("ABCD\n");
+  }
+</script>
+</head>
 
-// Let's start the class
-$serial = new PhpSerial;
+<body onload="SetPort()">  
+  <object classid="CLSID:7E42B8C5-73BE-4806-8904-FF4080A696EC" id="comport"></object>
 
-// First we must specify the device. This works on both linux and windows (if
-// your linux serial device is /dev/ttyS0 for COM1, etc)
-$serial->deviceSet("COM1");
+  <button onclick="javascript:SendData()">Send</button>
+  <br/>
+  <textarea name="output" rows=10 cols=50></textarea>
 
-// We can change the baud rate, parity, length, stop bits, flow control
-$serial->confBaudRate(115200);
-$serial->confParity("none");
-$serial->confCharacterLength(8);
-$serial->confStopBits(1);
-$serial->confFlowControl("none");
-
-// Then we need to open it
-$serial->deviceOpen();
-
-// To write into
-echo $serial->readPort(1);
->
-
-<\body>
-
-<\html>
-
-<\body>
-
-<\html>
+</body>
+</html>
