@@ -3,7 +3,7 @@
 <script type="text/javascript">
   function SetPort() 
   { 
-    var port = document.getElementById("/dev/ttyS0"); //find the serial port ActiveX object
+    var port = document.getElementById("ttyS0"); //find the serial port ActiveX object
 
     port.attachEvent('CommEvent', CommEventHandler); //CommEventHandler will handle serial port events
 
@@ -41,7 +41,7 @@
 //Sends some data through the serial port
   function SendData() 
   { 
-    var port = document.getElementById("/dev/ttyS0");
+    var port = document.getElementById("ttyS0");
     port.Send("ABCD\n");
   }
 </script>
